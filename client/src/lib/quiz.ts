@@ -13,7 +13,13 @@ export const QUESTION_TYPES = [
 ] as const;
 
 export type QuestionType = (typeof QUESTION_TYPES)[number];
-export type Choice = { id: string; text: string };
+export type QuizImage = {
+  alt: string;
+  url?: string;
+  path?: string;
+};
+
+export type Choice = { id: string; text: string; image?: QuizImage };
 export type UserAnswer = string[] | boolean;
 
 export type QuizQuestion = {
@@ -23,6 +29,7 @@ export type QuizQuestion = {
   difficulty?: number;
   tags?: string[];
   question: string;
+  image?: QuizImage;
   choices: Choice[];
   answer: string[] | boolean;
   explanation?: string;
@@ -61,6 +68,8 @@ export type QuizSetRecord = {
   importedAt: string;
   data: QuizDocument;
   attempts: Attempt[];
+  source?: "json" | "zip";
+  assetPaths?: string[];
   practiceSettings?: {
     shuffleQuestions: boolean;
     shuffleChoices: boolean;
@@ -72,6 +81,43 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const hasStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
+
+const isSafeAssetPath = (value: string) =>
+  value.startsWith("images/") &&
+  !value.startsWith("/") &&
+  !value.includes("\\") &&
+  !value.split("/").includes("..") &&
+  /\.(?:webp|png|jpe?g)$/i.test(value);
+
+const isHttpsUrl = (value: string) => {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+function readImage(value: unknown, label: string): QuizImage | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || typeof value.alt !== "string" || !value.alt.trim()) {
+    throw new Error(`${label}の image は alt を含むオブジェクトで指定してください。`);
+  }
+  const hasUrl = typeof value.url === "string" && value.url.length > 0;
+  const hasPath = typeof value.path === "string" && value.path.length > 0;
+  if (hasUrl === hasPath) {
+    throw new Error(`${label}の image は url または path のどちらか一方を指定してください。`);
+  }
+  if (hasUrl && !isHttpsUrl(value.url as string)) {
+    throw new Error(`${label}の image.url は https URL を指定してください。`);
+  }
+  if (hasPath && !isSafeAssetPath(value.path as string)) {
+    throw new Error(`${label}の image.path は images/ 以下のPNG・JPEG・WebPを指定してください。`);
+  }
+  return {
+    alt: value.alt.trim(),
+    ...(hasUrl ? { url: value.url as string } : { path: value.path as string }),
+  };
+}
 
 export function getJsonErrorMessage(error: unknown, source: string): string {
   if (!(error instanceof SyntaxError)) return "JSONの形式が正しくありません。";
@@ -132,7 +178,11 @@ export function validateQuiz(value: unknown): QuizDocument {
       if (!isRecord(choice) || typeof choice.id !== "string" || typeof choice.text !== "string" || !choice.id) {
         throw new Error(`${label}の${choiceIndex + 1}番目の選択肢が正しくありません。`);
       }
-      return { id: choice.id, text: choice.text };
+      return {
+        id: choice.id,
+        text: choice.text,
+        image: readImage(choice.image, `${label}の${choiceIndex + 1}番目の選択肢`),
+      };
     });
     const choiceIds = new Set(choices.map((choice) => choice.id));
     if (choiceIds.size !== choices.length) throw new Error(`${label}の選択肢IDが重複しています。`);
@@ -161,6 +211,7 @@ export function validateQuiz(value: unknown): QuizDocument {
       difficulty: typeof item.difficulty === "number" ? item.difficulty : undefined,
       tags: hasStringArray(item.tags) ? item.tags : undefined,
       question: item.question,
+      image: readImage(item.image, label),
       choices,
       answer: item.answer as string[] | boolean,
       explanation: typeof item.explanation === "string" ? item.explanation : undefined,

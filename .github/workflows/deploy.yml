@@ -30,14 +30,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build (static site only, no server bundle needed for Pages)
+      - name: Build static site
         run: pnpm run build:pages
 
-      - name: Add .nojekyll (disable Jekyll processing of the _-prefixed asset dir)
-        run: touch dist/public/.nojekyll
-
-      - name: SPA fallback so deep links / refreshes don't 404
-        run: cp dist/public/index.html dist/public/404.html
+      - name: Prepare Pages files
+        run: |
+          touch dist/public/.nojekyll
+          cp dist/public/index.html dist/public/404.html
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -3,21 +3,19 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { defineConfig } from "vite";
 
-const plugins = [react(), tailwindcss()];
-
+/**
+ * GitHub Pages deployment configuration.
+ * The relative base keeps bundled assets valid on both custom domains and
+ * repository subpaths such as https://<account>.github.io/<repository>/.
+ */
 export default defineConfig({
-  plugins,
-  // GitHub Pages のプロジェクトページ (https://<user>.github.io/<repo>/) を含め、
-  // どのサブパスに配置してもアセットが解決できるよう相対パスにする
   base: "./",
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
-  envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
@@ -25,11 +23,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    strictPort: false, // Will find next available port if 3000 is busy
+    strictPort: false,
     host: true,
-    fs: {
-      strict: true,
-      deny: ["**/.*"],
-    },
   },
 });

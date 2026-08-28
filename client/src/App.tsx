@@ -1,4 +1,5 @@
 /** Minimal monochrome dark application shell. */
+/** GitHub Pages版でも黒基調・簡潔な学習画面の視覚設計を維持するアプリ基盤。 */
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -10,8 +11,7 @@ import Home from "./pages/Home";
 function Router() {
   return (
     <Switch>
-      {/* GitHub Pages ではプロジェクトページのサブパス配下 (/repo-name/) で配信されるため、
-          厳密な "/" 一致ではなく任意のパスを Home にマッチさせる */}
+      <Route path="/" component={Home} />
       <Route path="/404" component={NotFound} />
       <Route path="/:rest*" component={Home} />
     </Switch>
