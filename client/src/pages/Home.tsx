@@ -21,6 +21,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { getAdjacentChoiceIndex } from "@/lib/keyboard";
 import { toast } from "sonner";
 import {
   type Attempt,
@@ -292,6 +293,8 @@ export default function Home() {
   const [resumePrompt, setResumePrompt] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
+  const choiceRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const answerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -411,6 +414,14 @@ export default function Home() {
   const attempts = selectedSet?.attempts ?? [];
   const current = session[currentIndex];
   const practice = selectedSet ? setPractice(selectedSet) : null;
+
+  useEffect(() => {
+    if (screen !== "quiz" || !current || feedback !== null) return;
+    const frame = window.requestAnimationFrame(() => {
+      (choiceRefs.current[0] ?? answerInputRef.current)?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [current?.question.id, currentIndex, feedback, screen]);
   const answeredCount = session.filter(({ question }) => answers[question.id] !== undefined).length;
   const confirmedCount = currentIndex + (feedback !== null ? 1 : 0);
   const progress = session.length ? Math.round((confirmedCount / session.length) * 100) : 0;
@@ -676,6 +687,17 @@ export default function Home() {
     return "bg-zinc-800 text-zinc-100 hover:bg-zinc-700";
   };
 
+  const handleChoiceKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+    totalChoices: number,
+  ) => {
+    const nextIndex = getAdjacentChoiceIndex(index, totalChoices, event.key);
+    if (nextIndex === null) return;
+    event.preventDefault();
+    choiceRefs.current[nextIndex]?.focus();
+  };
+
   const answerControl = () => {
     if (!current) return null;
     const { question, choices } = current;
@@ -684,17 +706,23 @@ export default function Home() {
 
     if (question.type === "true_false") {
       return (
-        <div className="grid grid-cols-2 gap-3">
-          {[true, false].map((item) => {
+        <div role="group" aria-label="正誤の選択肢" className="grid grid-cols-2 gap-3">
+          {[true, false].map((item, order) => {
             const chosen = value === item;
             const correct = locked && item === question.answer;
             const extra = locked && chosen && item !== question.answer;
             return (
               <button
+                type="button"
+                ref={(node) => {
+                  choiceRefs.current[order] = node;
+                }}
                 key={String(item)}
                 disabled={locked}
+                aria-pressed={chosen}
+                onKeyDown={(event) => handleChoiceKeyDown(event, order, 2)}
                 onClick={() => setAnswer(item)}
-                className={`min-h-24 rounded-xl px-5 text-left text-base font-semibold ${controlStyle(chosen, correct, false, extra)}`}
+                className={`min-h-24 rounded-xl px-5 text-left text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${controlStyle(chosen, correct, false, extra)}`}
               >
                 <span className="mb-1 block text-[11px] font-normal tracking-wide opacity-70">{item ? "TRUE" : "FALSE"}</span>
                 {item ? "○ 正しい" : "× 誤り"}
@@ -711,6 +739,7 @@ export default function Home() {
       const invalid = locked && feedback === false;
       return (
         <input
+          ref={answerInputRef}
           value={text}
           disabled={locked}
           onChange={(event) => setAnswer([event.target.value])}
@@ -718,6 +747,7 @@ export default function Home() {
             if (event.key === "Enter" && !locked) submitAnswer();
           }}
           placeholder="回答を入力"
+          aria-label="回答を入力"
           className={`h-14 w-full rounded-xl bg-zinc-800 px-4 text-base text-zinc-100 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-sky-400/60 ${valid ? "ring-1 ring-emerald-400/45" : invalid ? "ring-1 ring-rose-400/45" : ""}`}
         />
       );
@@ -725,7 +755,7 @@ export default function Home() {
 
     const answerKeys = question.answer as string[];
     return (
-      <div className="space-y-3">
+      <div role="group" aria-label="選択肢" className="space-y-3">
         {choices.map((choice, order) => {
           const chosen = Array.isArray(value) && value.includes(choice.id);
           const key = answerKeys.includes(choice.id);
@@ -737,8 +767,14 @@ export default function Home() {
             : controlStyle(chosen, correct, missing, extra);
           return (
             <button
+              type="button"
+              ref={(node) => {
+                choiceRefs.current[order] = node;
+              }}
               key={choice.id}
               disabled={locked}
+              aria-pressed={chosen}
+              onKeyDown={(event) => handleChoiceKeyDown(event, order, choices.length)}
               onClick={() => {
                 if (question.type === "single_choice") {
                   setAnswer([choice.id]);
@@ -751,7 +787,7 @@ export default function Home() {
                   );
                 }
               }}
-              className={`flex min-h-15 w-full items-center gap-4 rounded-xl px-4 py-3 text-left ${optionClass}`}
+              className={`flex min-h-15 w-full items-center gap-4 rounded-xl px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${optionClass}`}
             >
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black/20 text-xs font-semibold">
                 {correct ? <Check className="h-4 w-4" /> : String.fromCharCode(65 + order)}

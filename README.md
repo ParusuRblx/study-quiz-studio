@@ -28,6 +28,10 @@ pnpm run build:pages
 
 生成先は `dist/public` です。Viteの `base` は相対パス（`./`）に設定済みのため、`https://<アカウント>.github.io/<リポジトリ名>/` のようなサブパス配信でもJavaScriptとCSSを正しく読み込めます。
 
+## キーボード操作
+
+演習画面では、通常のブラウザ操作と同じく Tab で入力欄・選択肢・操作ボタンの間を移動できます。選択肢にフォーカスがあるときは、上下または左右の矢印キーで選択肢を移動し、Enter または Space で選択します。矢印キーは選択肢の端で反対側へ循環し、Home と End でも先頭・末尾へ移動できます。短答・穴埋め問題では、入力欄にフォーカスしたまま Enter で回答を確認できます。
+
 ## GitHub Pagesへの公開
 
 このリポジトリには、`main` ブランチへのプッシュを契機にビルドと公開を実行する GitHub Actions ワークフロー（`.github/workflows/deploy.yml`）を含めています。GitHubで新しいリポジトリを作成してソースをプッシュした後、リポジトリの **Settings → Pages** を開き、公開元を **GitHub Actions** に設定してください。その後に `main` へプッシュすると、ワークフローが `dist/public` を公開します。
