@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { getAdjacentChoiceIndex } from "@/lib/keyboard";
+import { MarkdownText } from "@/lib/markdown";
 import { toast } from "sonner";
 import {
   type Attempt,
@@ -291,6 +292,8 @@ export default function Home() {
   const [expandedImage, setExpandedImage] = useState<{ source: string; alt: string } | null>(null);
   const [savedProgress, setSavedProgress] = useState<SavedQuizProgress | null>(null);
   const [resumePrompt, setResumePrompt] = useState(false);
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
   const choiceRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -459,6 +462,40 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (file) void importPackageFile(file);
     event.target.value = "";
+  };
+
+  const importFromUrl = async () => {
+    const value = sourceUrl.trim();
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      toast.error("URLを確認してください。", { description: "http:// または https:// から始まるURLを入力してください。" });
+      return;
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      toast.error("対応していないURLです。", { description: "http:// または https:// のURLを指定してください。" });
+      return;
+    }
+    setIsLoadingUrl(true);
+    try {
+      const response = await fetch(parsed.href, { credentials: "omit" });
+      if (!response.ok) throw new Error(`サーバーが ${response.status} を返しました。`);
+      const blob = await response.blob();
+      if (blob.size > MAX_PACKAGE_BYTES) throw new Error("ファイルは30MB以下にしてください。");
+      const pathname = parsed.pathname.toLowerCase();
+      const isZip = pathname.endsWith(".zip") || blob.type.includes("zip");
+      const isJson = pathname.endsWith(".json") || blob.type.includes("json") || !isZip;
+      if (!isJson && !isZip) throw new Error("URL先はJSONまたはZIPファイルである必要があります。");
+      const filename = isZip ? "downloaded-quiz.zip" : "downloaded-quiz.json";
+      await importPackageFile(new File([blob], filename, { type: isZip ? "application/zip" : "application/json" }));
+      setSourceUrl("");
+    } catch (error) {
+      const message = error instanceof TypeError ? "URL先に接続できませんでした。公開URLのCORS設定も確認してください。" : error instanceof Error ? error.message : "URLから読み込めませんでした。";
+      toast.error("URLからの読み込みに失敗しました。", { description: message });
+    } finally {
+      setIsLoadingUrl(false);
+    }
   };
 
   const handlesFiles = (event: React.DragEvent<HTMLDivElement>) =>
@@ -793,7 +830,7 @@ export default function Home() {
                 {correct ? <Check className="h-4 w-4" /> : String.fromCharCode(65 + order)}
               </span>
               <div className="flex-1 leading-relaxed">
-                {choice.text}
+                <MarkdownText text={choice.text} className="space-y-1" />
                 {missing && <span className="ml-2 text-xs font-medium text-rose-200">未選択の正解</span>}
                 <QuizImageView image={choice.image} assetUrls={assetUrls} onExpand={(source, alt) => setExpandedImage({ source, alt })} className="mt-3 max-h-56 w-full" />
               </div>
@@ -902,6 +939,14 @@ export default function Home() {
             <button onClick={() => inputRef.current?.click()} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 text-sm font-medium text-zinc-200 hover:bg-zinc-700">
               <Upload className="h-4 w-4" />問題セットを読み込む
             </button>
+            <div className="mt-3 space-y-2">
+              <label htmlFor="quiz-source-url" className="block text-xs font-medium text-zinc-500">公開URLから読み込む</label>
+              <div className="flex gap-2">
+                <input id="quiz-source-url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void importFromUrl(); }} placeholder="https://…/quiz.json" className="min-w-0 flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-2 focus:ring-sky-400/60" />
+                <button type="button" onClick={() => void importFromUrl()} disabled={isLoadingUrl || !sourceUrl.trim()} className="rounded-lg bg-sky-500/70 px-3 text-xs font-semibold text-sky-50 hover:bg-sky-500/85 disabled:cursor-not-allowed disabled:opacity-35">{isLoadingUrl ? "取得中…" : "取得"}</button>
+              </div>
+              <p className="text-[11px] leading-4 text-zinc-600">JSONまたはZIPの直接公開URL。配信元のCORS許可が必要です。</p>
+            </div>
           </div>
         </aside>
         {menuOpen && <button aria-label="問題セットを閉じる" onClick={() => setMenuOpen(false)} className="fixed inset-x-0 bottom-0 top-16 z-30 bg-black/50 lg:hidden" />}
@@ -1061,7 +1106,7 @@ export default function Home() {
                   <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium">{typeName[current.question.type]}</span>
                   {current.question.category && <span className="text-xs text-zinc-500">{current.question.category}</span>}
                 </div>
-                <h1 className="mt-6 text-2xl font-bold leading-relaxed sm:text-3xl">{current.question.question}</h1>
+                <MarkdownText text={current.question.question} className="mt-6 text-2xl font-bold leading-relaxed sm:text-3xl" />
                 {current.question.tags?.length ? <p className="mt-3 text-xs text-zinc-400">{current.question.tags.map((tag) => `#${tag}`).join("  ")}</p> : null}
                 <QuizImageView image={current.question.image} assetUrls={assetUrls} onExpand={(source, alt) => setExpandedImage({ source, alt })} className="mt-6 max-h-[420px] w-full" />
                 <div className="mt-8">{answerControl()}</div>
@@ -1072,7 +1117,7 @@ export default function Home() {
                       <div className="mt-0.5">{feedback ? <CheckCircle2 className="h-5 w-5 text-emerald-300" /> : <XCircle className="h-5 w-5 text-rose-300" />}</div>
                       <div>
                         <p className="font-semibold">{feedback ? "正解" : "不正解"}</p>
-                        {selectedSet?.data.settings.showExplanation && current.question.explanation && <p className="mt-1 text-sm leading-6 opacity-90">{current.question.explanation}</p>}
+                        {selectedSet?.data.settings.showExplanation && current.question.explanation && <MarkdownText text={current.question.explanation} className="mt-1 text-sm leading-6 opacity-90" />}
                       </div>
                     </div>
                   </div>
