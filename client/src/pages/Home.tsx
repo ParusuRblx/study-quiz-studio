@@ -910,7 +910,6 @@ export default function Home() {
           <button onClick={() => setMenuOpen(true)} className="grid h-9 w-9 place-items-center rounded-lg bg-zinc-800 lg:hidden" aria-label="問題セットを開く">
             <Menu className="h-5 w-5" />
           </button>
-          <span aria-hidden="true" className="grid h-5 w-5 place-items-center rounded-sm bg-zinc-700"><span className="h-2 w-2 rounded-[1px] bg-zinc-200" /></span>
           <p className="text-sm font-bold tracking-[0.01em] text-zinc-100">Study Quiz Studio</p>
         </div>
         <div className="flex items-center gap-2">
@@ -918,7 +917,7 @@ export default function Home() {
             <Download className="h-4 w-4" />テンプレート
           </button>
           <button onClick={() => inputRef.current?.click()} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-zinc-800 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-700">
-            <Plus className="h-4 w-4" />問題セットを追加
+            <Plus className="h-4 w-4" />問題セットを読み込む
           </button>
         </div>
       </header>
@@ -941,11 +940,10 @@ export default function Home() {
             </button>
             <div className="mt-3 space-y-2">
               <label htmlFor="quiz-source-url" className="block text-xs font-medium text-zinc-500">公開URLから読み込む</label>
-              <div className="flex gap-2">
-                <input id="quiz-source-url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void importFromUrl(); }} placeholder="https://…/quiz.json" className="min-w-0 flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-2 focus:ring-sky-400/60" />
-                <button type="button" onClick={() => void importFromUrl()} disabled={isLoadingUrl || !sourceUrl.trim()} className="rounded-lg bg-sky-500/70 px-3 text-xs font-semibold text-sky-50 hover:bg-sky-500/85 disabled:cursor-not-allowed disabled:opacity-35">{isLoadingUrl ? "取得中…" : "取得"}</button>
-              </div>
-              <p className="text-[11px] leading-4 text-zinc-600">JSONまたはZIPの直接公開URL。配信元のCORS許可が必要です。</p>
+              <form onSubmit={(event) => { event.preventDefault(); void importFromUrl(); }} className="flex gap-2">
+                <input id="quiz-source-url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://…/quiz.json" className="min-w-0 flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-2 focus:ring-sky-400/60" />
+                <button type="submit" disabled={isLoadingUrl || !sourceUrl.trim()} className="rounded-lg bg-sky-500/70 px-3 text-xs font-semibold text-sky-50 hover:bg-sky-500/85 disabled:cursor-not-allowed disabled:opacity-35">{isLoadingUrl ? "取得中…" : "取得"}</button>
+              </form>
             </div>
           </div>
         </aside>
